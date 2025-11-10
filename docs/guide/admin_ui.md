@@ -18,7 +18,9 @@ nav_order: 1
 
 # LNBits Admin UI
 
-We introduced the Admin UI as the new default to make setup simpler and more straightforward. Instead of hand editing the `.env` file, you configure key server settings directly in the frontend with clear labels and guardrails.
+[What you can do](#what-you-can-do-with-the-admin-ui) · [First Run](#first-run-and-super-user-id) · [Enable/Disable](#enabling-or-disabling-the-admin-ui) · [Reset](#reset-to-defaults) · [Allowed Users](#allowed-users) · [Guides](#additional-guides)
+
+**We introduced the Admin UI as the new default to make setup simpler and more straightforward**. Instead of hand editing the `.env` file, you configure key server settings directly in the frontend with clear labels and guardrails.
 
 <ins>On a fresh install the Admin UI is enabled by default</ins>, and at first launch you are prompted to create **Super User** credentials so that sensitive operations, such as switching funding sources, remain in trusted hands. When the Admin UI is enabled, configuration is written to and read from the database; for all settings managed by the UI, the parameters in `.env` are largely no longer used. If you disable the Admin UI, the `.env` file becomes the single source of truth again.
 
@@ -41,6 +43,27 @@ For a complete reference of legacy variables consult **[.env.example](../../.env
 
 > [!NOTE]
 > See **[Super User](./super_user.md)** for the role and permission differences compared to Admin Users.
+
+## First run and Super User ID
+
+On first start with the Admin UI enabled you will be prompted to generate a Super User.
+
+<img width="1573" height="976" alt="Admin_UI_first_install" src="https://github.com/user-attachments/assets/05aa634f-06ec-4a4d-a5c6-d90927c90991" />
+
+If you need to read it from disk later:
+
+```bash
+cat /lnbits/data/.super_user
+# example
+123de4bfdddddbbeb48c8bc8382fe123
+```
+
+> [!WARNING]
+> For security reasons, Super Users and Admin users must authenticate with credentials (username and password).
+
+After login you will see **Settings** and **Users** in the sidebar between **Wallets** and **Extensions**, plus a role badge in the top left.
+
+<img width="1353" height="914" alt="grafik" src="https://github.com/user-attachments/assets/06bb4f36-a23a-4058-87ec-60440d322c25" />
 
 ## Enabling or disabling the Admin UI
 
@@ -82,23 +105,6 @@ The Admin UI is enabled by default on new installs. To change the state:
 
 Using `Reset to defaults` in the Admin UI wipes stored settings. After a restart, a new `Super User` is created and the old one is no longer valid.
 
-## First run and Super User ID
-
-On first start with the Admin UI enabled you will be prompted to generate a Super User. If you need to read it from disk later:
-
-```bash
-cat /lnbits/data/.super_user
-# example
-123de4bfdddddbbeb48c8bc8382fe123
-```
-
-> [!WARNING]
-> For security reasons, Super Users and Admin users must authenticate with credentials (username and password).
-
-After login you will see **Settings** and **Users** in the sidebar between **Wallets** and **Extensions**, plus a role badge in the top left.
-
-<img width="1353" height="914" alt="grafik" src="https://github.com/user-attachments/assets/06bb4f36-a23a-4058-87ec-60440d322c25" />
-
 ## Allowed Users
 
 When set **at least one**, LNbits becomes private: only the listed users and Admins can access the frontend. Account creation is disabled automatically. You can also disable account creation explicitly.
@@ -111,8 +117,8 @@ When set **at least one**, LNbits becomes private: only the listed users and Adm
 ## Additional Guides
 
 - **[Backend Wallets](./wallets.md)** — Explore options to fund your LNbits instance.
-- **[User Roles](./User_Roles.md)** — Overview of existing roles in LNbits.
-- **[Funding sources](./funding-sources_table.md)** — What is available and how to configure each.
+- **[User Roles](./user_roles.md)** — Overview of existing roles in LNbits.
+- **[Funding sources](./funding-sources-table.md)** — What is available and how to configure each.
 - **[Install LNBits](./installation.md)** — Choose your prefared way to install LNBits.
 
 ## Powered by LNbits
