@@ -1,6 +1,6 @@
 window.app.component('lnbits-payment-list', {
   template: '#lnbits-payment-list',
-  props: ['update', 'lazy', 'wallet', 'paymentFilter'],
+  props: ['wallet', 'paymentFilter'],
   mixins: [window.windowMixin],
   data() {
     return {
@@ -198,6 +198,7 @@ window.app.component('lnbits-payment-list', {
           this.payments = response.data.data.map(obj => {
             return LNbits.map.payment(obj)
           })
+          this.recheckPendingPayments()
         })
         .catch(err => {
           this.paymentsTable.loading = false
@@ -243,6 +244,45 @@ window.app.component('lnbits-payment-list', {
           }
         })
         .catch(LNbits.utils.notifyApiError)
+    },
+    recheckPendingPayments() {
+      const pendingPayments = this.payments.filter(p => p.status === 'pending')
+      if (pendingPayments.length === 0) return
+
+      const params = [
+        'recheck_pending=true',
+        'checking_id[in]=' + pendingPayments.map(p => p.checking_id).join(',')
+      ].join('&')
+
+      LNbits.api
+        .getPayments(this.currentWallet, params)
+        .then(response => {
+          let updatedPayments = 0
+          response.data.data.forEach(updatedPayment => {
+            if (updatedPayment.status !== 'pending') {
+              const index = this.payments.findIndex(
+                p => p.checking_id === updatedPayment.checking_id
+              )
+              if (index !== -1) {
+                this.payments.splice(
+                  index,
+                  1,
+                  LNbits.map.payment(updatedPayment)
+                )
+                updatedPayments += 1
+              }
+            }
+          })
+          if (updatedPayments > 0) {
+            Quasar.Notify.create({
+              type: 'positive',
+              message: this.$t('payment_successful')
+            })
+          }
+        })
+        .catch(err => {
+          console.warn(err)
+        })
     },
     showHoldInvoiceDialog(payment) {
       this.hodlInvoice.show = true
@@ -423,23 +463,11 @@ window.app.component('lnbits-payment-list', {
         this.fetchPayments()
       }
     },
-    lazy(newVal) {
-      if (newVal === true) this.fetchPayments()
-    },
-    update() {
-      this.fetchPayments()
-    },
     'g.updatePayments'() {
       this.fetchPayments()
-    },
-    'g.wallet': {
-      handler(newWallet) {
-        this.fetchPayments()
-      },
-      deep: true
     }
   },
   created() {
-    if (this.lazy === undefined) this.fetchPayments()
+    this.fetchPayments()
   }
 })
