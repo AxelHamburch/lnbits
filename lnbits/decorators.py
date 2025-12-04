@@ -27,9 +27,11 @@ from lnbits.core.models import (
     User,
     WalletTypeInfo,
 )
+from lnbits.core.models.users import AccountId
 from lnbits.db import Connection, Filter, Filters, TFilterModel
-from lnbits.helpers import normalize_path, path_segments
+from lnbits.helpers import normalize_path, path_segments, sha256s
 from lnbits.settings import AuthMethods, settings
+from lnbits.utils.cache import cache
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="api/v1/auth",
@@ -106,7 +108,7 @@ class KeyChecker(SecurityBase):
                 detail="Invalid adminkey.",
             )
 
-        await _check_user_extension_access(wallet.user, request["path"])
+        await _check_user_access(request, wallet.user)
 
         key_type = KeyType.admin if wallet.adminkey == key_value else KeyType.invoice
         return WalletTypeInfo(key_type, wallet)
@@ -144,11 +146,49 @@ async def check_access_token(
     return header_access_token or cookie_access_token or bearer_access_token
 
 
-async def check_user_exists(
+async def check_account_id_exists(
     r: Request,
     access_token: Annotated[str | None, Depends(check_access_token)],
     usr: UUID4 | None = None,
-) -> User:
+) -> AccountId:
+    cache_key: str | None = None
+    if access_token:
+        cache_key = f"auth:access_token:{sha256s(access_token)}"
+    elif usr:
+        cache_key = f"auth:user_id:{sha256s(usr.hex)}"
+
+    if cache_key and settings.auth_authentication_cache_minutes > 0:
+        account_id = cache.get(cache_key)
+        if account_id:
+            r.scope["user_id"] = account_id.id
+            await _check_user_access(r, account_id)
+            return account_id
+
+    account = await check_account_exists(r, access_token, usr)
+    account_id = AccountId(id=account.id)
+
+    if cache_key and settings.auth_authentication_cache_minutes > 0:
+        cache.set(
+            cache_key,
+            account_id,
+            expiry=settings.auth_authentication_cache_minutes * 60,
+        )
+
+    return account_id
+
+
+async def check_account_exists(
+    r: Request,
+    access_token: Annotated[str | None, Depends(check_access_token)],
+    usr: UUID4 | None = None,
+) -> Account:
+    """
+    Check that the account exists based on access token or user id.
+    More performant version of `check_user_exists`.
+    Unlike `check_user_exists`, this function:
+      - does not fetch the user wallets
+      - caches the account info based on settings cache time
+    """
     if access_token:
         account = await _get_account_from_token(access_token, r["path"], r["method"])
     elif usr and settings.is_auth_method_allowed(AuthMethods.user_id_only):
@@ -164,13 +204,21 @@ async def check_user_exists(
         raise HTTPException(HTTPStatus.UNAUTHORIZED, "User not found.")
 
     r.scope["user_id"] = account.id
-    if not settings.is_user_allowed(account.id):
-        raise HTTPException(HTTPStatus.FORBIDDEN, "User not allowed.")
+    await _check_user_access(r, account.id)
 
+    return account
+
+
+async def check_user_exists(
+    r: Request,
+    access_token: Annotated[str | None, Depends(check_access_token)],
+    usr: UUID4 | None = None,
+) -> User:
+    account = await check_account_exists(r, access_token, usr)
     user = await get_user_from_account(account)
     if not user:
         raise HTTPException(HTTPStatus.UNAUTHORIZED, "User not found.")
-    await _check_user_extension_access(user.id, r["path"])
+
     return user
 
 
@@ -278,6 +326,12 @@ async def check_user_extension_access(
             )
 
     return SimpleStatus(success=True, message="OK")
+
+
+async def _check_user_access(r: Request, user_id: str):
+    if not settings.is_user_allowed(user_id):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "User not allowed.")
+    await _check_user_extension_access(user_id, r["path"])
 
 
 async def _check_user_extension_access(user_id: str, path: str):
