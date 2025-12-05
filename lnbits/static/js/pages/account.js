@@ -191,6 +191,14 @@ window.PageAccount = {
     }
   },
   watch: {
+    tab(tab) {
+      this.$router.push(`/account#${tab}`)
+    },
+    $route(to) {
+      if (to.hash.length > 1) {
+        this.tab = to.hash.replace('#', '')
+      }
+    },
     'assetsTable.search': {
       handler() {
         const props = {}
@@ -688,9 +696,8 @@ window.PageAccount = {
     } catch (e) {
       LNbits.utils.notifyApiError(e)
     }
-    const hash = window.location.hash.replace('#', '')
-    if (hash) {
-      this.tab = hash
+    if (this.$route.hash.length > 1) {
+      this.tab = this.$route.hash.replace('#', '')
     }
     await this.getApiACLs()
     await this.getUserAssets()
