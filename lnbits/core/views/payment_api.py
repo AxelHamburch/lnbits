@@ -36,13 +36,15 @@ from lnbits.core.models import (
 )
 from lnbits.core.models.payments import UpdatePaymentLabels
 from lnbits.core.models.users import AccountId
+from lnbits.core.models.wallets import BaseWalletTypeInfo
 from lnbits.db import Filters, Page
 from lnbits.decorators import (
     WalletTypeInfo,
     check_account_id_exists,
     parse_filters,
     require_admin_key,
-    require_invoice_key,
+    require_base_admin_key,
+    require_base_invoice_key,
 )
 from lnbits.helpers import (
     filter_dict_keys,
@@ -82,7 +84,7 @@ payment_router = APIRouter(prefix="/api/v1/payments", tags=["Payments"])
     openapi_extra=generate_filter_params_openapi(PaymentFilters),
 )
 async def api_payments(
-    key_info: WalletTypeInfo = Depends(require_invoice_key),
+    key_info: BaseWalletTypeInfo = Depends(require_base_invoice_key),
     filters: Filters = Depends(parse_filters(PaymentFilters)),
 ):
     await update_pending_payments(key_info.wallet.id)
@@ -101,7 +103,7 @@ async def api_payments(
     openapi_extra=generate_filter_params_openapi(PaymentFilters),
 )
 async def api_payments_history(
-    key_info: WalletTypeInfo = Depends(require_invoice_key),
+    key_info: BaseWalletTypeInfo = Depends(require_base_invoice_key),
     group: DateTrunc = Query("day"),
     filters: Filters[PaymentFilters] = Depends(parse_filters(PaymentFilters)),
 ):
@@ -178,7 +180,7 @@ async def api_payments_daily_stats(
     openapi_extra=generate_filter_params_openapi(PaymentFilters),
 )
 async def api_payments_paginated(
-    key_info: WalletTypeInfo = Depends(require_invoice_key),
+    key_info: BaseWalletTypeInfo = Depends(require_base_invoice_key),
     recheck_pending: bool = Query(
         False, description="Force check and update of pending payments."
     ),
@@ -243,10 +245,10 @@ async def api_all_payments_paginated(
 )
 async def api_payments_create(
     invoice_data: CreateInvoice,
-    wallet: WalletTypeInfo = Depends(require_invoice_key),
+    key_info: BaseWalletTypeInfo = Depends(require_base_invoice_key),
 ) -> Payment:
-    wallet_id = wallet.wallet.id
-    if invoice_data.out is True and wallet.key_type == KeyType.admin:
+    wallet_id = key_info.wallet.id
+    if invoice_data.out is True and key_info.key_type == KeyType.admin:
         if not invoice_data.bolt11:
             raise HTTPException(
                 status_code=HTTPStatus.BAD_REQUEST,
@@ -274,9 +276,8 @@ async def api_payments_create(
 async def api_update_payment_labels(
     payment_hash: str,
     data: UpdatePaymentLabels,
-    key_type: WalletTypeInfo = Depends(require_admin_key),
+    key_type: BaseWalletTypeInfo = Depends(require_base_admin_key),
 ) -> SimpleStatus:
-
     payment = await get_standalone_payment(payment_hash, wallet_id=key_type.wallet.id)
     if payment is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Payment does not exist.")

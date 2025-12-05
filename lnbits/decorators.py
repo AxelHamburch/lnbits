@@ -19,6 +19,7 @@ from lnbits.core.crud import (
     get_wallet_for_key,
 )
 from lnbits.core.crud.users import get_user_access_control_lists
+from lnbits.core.crud.wallets import get_base_wallet_for_key
 from lnbits.core.models import (
     AccessTokenPayload,
     Account,
@@ -28,6 +29,7 @@ from lnbits.core.models import (
     WalletTypeInfo,
 )
 from lnbits.core.models.users import AccountId
+from lnbits.core.models.wallets import BaseWallet, BaseWalletTypeInfo
 from lnbits.db import Connection, Filter, Filters, TFilterModel
 from lnbits.helpers import normalize_path, path_segments, sha256s
 from lnbits.settings import AuthMethods, settings
@@ -54,7 +56,7 @@ api_key_query = APIKeyQuery(
 )
 
 
-class KeyChecker(SecurityBase):
+class BaseKeyChecker(SecurityBase):
     def __init__(
         self,
         api_key: str | None = None,
@@ -79,8 +81,7 @@ class KeyChecker(SecurityBase):
             )
         self.model: APIKey = openapi_model  # type: ignore
 
-    async def __call__(self, request: Request) -> WalletTypeInfo:
-
+    def _extract_key_value(self, request):
         key_value = (
             self._api_key
             if self._api_key
@@ -93,6 +94,31 @@ class KeyChecker(SecurityBase):
                 detail="No Api Key provided.",
             )
 
+        return key_value
+
+    async def _extract_key_type(self, key_value: str, wallet: BaseWallet) -> KeyType:
+        if self.expected_key_type is KeyType.admin and wallet.adminkey != key_value:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="Invalid adminkey.",
+            )
+
+        key_type = KeyType.admin if wallet.adminkey == key_value else KeyType.invoice
+        return key_type
+
+
+class KeyChecker(BaseKeyChecker):
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        expected_key_type: KeyType | None = None,
+    ):
+        super().__init__(api_key, expected_key_type)
+
+    async def __call__(self, request: Request) -> WalletTypeInfo:
+        key_value = self._extract_key_value(request)
+
         wallet = await get_wallet_for_key(key_value)
 
         if not wallet:
@@ -102,16 +128,50 @@ class KeyChecker(SecurityBase):
             )
 
         request.scope["user_id"] = wallet.user
-        if self.expected_key_type is KeyType.admin and wallet.adminkey != key_value:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Invalid adminkey.",
-            )
-
         await _check_user_access(request, wallet.user)
 
-        key_type = KeyType.admin if wallet.adminkey == key_value else KeyType.invoice
+        key_type = await self._extract_key_type(key_value, wallet)
         return WalletTypeInfo(key_type, wallet)
+
+
+class LightKeyChecker(BaseKeyChecker):
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        expected_key_type: KeyType | None = None,
+    ):
+        super().__init__(api_key, expected_key_type)
+
+    async def __call__(self, request: Request) -> BaseWalletTypeInfo:
+        key_value = self._extract_key_value(request)
+        cache_key = f"auth:x-api-key:{key_value}"
+        cache_time = settings.auth_authentication_cache_minutes * 60
+
+        if cache_time > 0:
+            key_info: BaseWalletTypeInfo | None = cache.get(cache_key)
+            if key_info:
+                request.scope["user_id"] = key_info.wallet.user
+                await _check_user_access(request, key_info.wallet.user)
+                return key_info
+
+        wallet = await get_base_wallet_for_key(key_value)
+
+        if not wallet:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Wallet not found.",
+            )
+        request.scope["user_id"] = wallet.user
+        await _check_user_access(request, wallet.user)
+
+        key_type = await self._extract_key_type(key_value, wallet)
+        key_info = BaseWalletTypeInfo(key_type, wallet)
+
+        if cache_time > 0:
+            cache.set(cache_key, key_info, expiry=cache_time)
+            cache.set(f"auth:wallet:{wallet.id}", wallet, expiry=cache_time)
+        return key_info
 
 
 async def require_admin_key(
@@ -126,12 +186,36 @@ async def require_admin_key(
     return await check(request)
 
 
+async def require_base_admin_key(
+    request: Request,
+    api_key_header: str = Security(api_key_header),
+    api_key_query: str = Security(api_key_query),
+) -> BaseWalletTypeInfo:
+    check: LightKeyChecker = LightKeyChecker(
+        api_key=api_key_header or api_key_query,
+        expected_key_type=KeyType.admin,
+    )
+    return await check(request)
+
+
 async def require_invoice_key(
     request: Request,
     api_key_header: str = Security(api_key_header),
     api_key_query: str = Security(api_key_query),
 ) -> WalletTypeInfo:
     check: KeyChecker = KeyChecker(
+        api_key=api_key_header or api_key_query,
+        expected_key_type=KeyType.invoice,
+    )
+    return await check(request)
+
+
+async def require_base_invoice_key(
+    request: Request,
+    api_key_header: str = Security(api_key_header),
+    api_key_query: str = Security(api_key_query),
+) -> BaseWalletTypeInfo:
+    check: LightKeyChecker = LightKeyChecker(
         api_key=api_key_header or api_key_query,
         expected_key_type=KeyType.invoice,
     )

@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from lnbits.core.models import (
-    BaseWallet,
     ConversionData,
     CreateWallet,
     User,
@@ -71,7 +70,6 @@ async def health_check(
     "/api/v1/wallets",
     name="Wallets",
     description="Get basic info for all of user's wallets.",
-    response_model=list[BaseWallet],
 )
 async def api_wallets(user: User = Depends(check_user_exists)) -> list[Wallet]:
     return user.wallets
