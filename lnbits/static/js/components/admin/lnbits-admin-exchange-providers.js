@@ -70,6 +70,11 @@ window.app.component('lnbits-admin-exchange-providers', {
     }
   },
   methods: {
+    getDefaultSetting(fieldName) {
+      LNbits.api.getDefaultSetting(fieldName).then(response => {
+        this.formData[fieldName] = response.data.default_value
+      })
+    },
     getExchangeRateHistory() {
       LNbits.api
         .request('GET', '/api/v1/rate/history', this.g.user.wallets[0].inkey)

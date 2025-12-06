@@ -173,5 +173,10 @@ window._lnbitsApi = {
     return this.request('GET', '/api/v1/currencies').then(response => {
       return ['sats', ...response.data]
     })
+  },
+  getDefaultSetting(fieldName) {
+    return LNbits.api
+      .request('GET', `/admin/api/v1/settings/default?field_name=${fieldName}`)
+      .catch(LNbits.utils.notifyApiError)
   }
 }
