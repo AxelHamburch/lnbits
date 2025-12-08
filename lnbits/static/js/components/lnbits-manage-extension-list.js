@@ -9,27 +9,18 @@ window.app.component('lnbits-manage-extension-list', {
     }
   },
   watch: {
-    'g.user.extensions': {
-      async handler() {
-        await this.loadExtensions()
-      }
+    'g.user.extensions'() {
+      this.loadExtensions()
     },
     searchTerm() {
       this.filterUserExtensionsByTerm()
     }
   },
   methods: {
-    map(data) {
-      const obj = {...data}
-      obj.url = ['/', obj.code, '/'].join('')
-      return obj
-    },
     async loadExtensions() {
       try {
-        const {data} = await LNbits.api.request('GET', '/api/v1/extension')
-        this.extensions = data
-          .map(extension => this.map(extension))
-          .sort((a, b) => a.name.localeCompare(b.name))
+        res = await LNbits.api.request('GET', '/api/v1/extension')
+        this.extensions = res.data.sort((a, b) => a.name.localeCompare(b.name))
         this.filterUserExtensionsByTerm()
       } catch (error) {
         LNbits.utils.notifyApiError(error)
