@@ -74,6 +74,8 @@ window.localisation.en = {
   update_name: 'Update name',
   fiat_tracking: 'Fiat tracking',
   fiat_providers: 'Fiat providers',
+  fiat_warning_bitcoin:
+    'Fiat providers can get twitchy about anything bitcoin, so avoid using word "bitcoin" in your memos!',
   currency: 'Currency',
   update_currency: 'Update currency',
   press_to_claim: 'Press to claim bitcoin',
@@ -237,6 +239,7 @@ window.localisation.en = {
   webhook_url: 'Webhook URL',
   webhook_url_hint:
     'Webhook URL to send the payment details to. It will be called when the payment is completed.',
+  copy_webhook_url: 'Copy webhook URL',
   webhook_events_list: 'The following events must be supported by the webhook:',
   webhook_stripe_description:
     'One the stripe side you must configure a webhook with a URL that points to your LNbits server.',
@@ -428,8 +431,7 @@ window.localisation.en = {
   look_and_feel: 'Look and Feel',
   endpoint: 'Endpoint',
   api: 'API',
-  api_stripe:
-    'API (warning: Stripe are twitchy about anything bitcoin, so avoid using word "bitcoin" in your memos!)',
+  api_stripe: 'API',
   api_token: 'API Token',
   api_tokens: 'API Tokens',
   access_control_list: 'Access Control List',
@@ -706,10 +708,15 @@ window.localisation.en = {
   filter_labels: 'Filter labels',
   filter_date: 'Filter by date',
   websocket_example: 'Websocket example',
+  client_id: 'Client ID',
   secret_key: 'Secret Key',
   signing_secret: 'Signing Secret',
   signing_secret_hint:
     'Signing secret for the webhook. Messages will be signed with this secret.',
+  webhook_id: 'Webhook ID',
+  webhook_id_hint: 'PayPal webhook ID used to verify incoming events.',
+  webhook_paypal_description:
+    'On the PayPal side configure a webhook pointing to your LNbits server.',
   callback_success_url: 'Callback Success URL',
   callback_success_url_hint:
     'The user will be redirected to this URL after the payment is successful',
