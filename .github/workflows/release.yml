@@ -23,10 +23,11 @@ jobs:
           tag: ${{ github.ref_name }}
         run: |
           gh release create "$tag" --generate-notes --draft
-          upload_url=$(gh release view $tag --repo lnbits/lnbits --json uploadUrl -q ".uploadUrl")
+          upload_url=$(gh release view "$tag" --repo "${{ github.repository }}" --json uploadUrl -q ".uploadUrl")
           echo "upload_url=$upload_url" >> "$GITHUB_OUTPUT"
 
   docker:
+    if: github.repository == 'lnbits/lnbits'
     needs: [ release ]
     uses: ./.github/workflows/docker.yml
     with:
@@ -36,6 +37,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   docker-latest:
+    if: github.repository == 'lnbits/lnbits'
     needs: [ release ]
     uses: ./.github/workflows/docker.yml
     with:
@@ -45,6 +47,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   pypi:
+    if: github.repository == 'lnbits/lnbits'
     runs-on: ubuntu-24.04
     steps:
       - name: Install dependencies for building secp256k1
